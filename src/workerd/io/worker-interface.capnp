@@ -481,6 +481,8 @@ enum SerializationTag {
   #
   # Similar to serviceStub, this refers to the entrypoint of a Worker that can be instantiated
   # anywhere and any time, and thus can be persisted and used in `env` and `ctx.props`, etc.
+
+  socket @13;
 }
 
 enum StreamEncoding {
@@ -578,6 +580,15 @@ struct JsValue {
       # token. We do not want to delay sending the RPC (especially as this could violate ordering
       # guarantees), so instead we send it with a placeholder representing the token to be provided
       # later.
+
+      socket :group {
+        # A Socket. Like ReadableStream, this requires bi-directional stream communication.
+        remoteAddress @16 :Text;
+        # The remote address this socket is connected to.
+
+        secureTransport @17 :Text;
+        # Security transport mode: "on", "off", or "starttls".
+      }
 
       # TODO(soon): WebSocket, Request, Response
     }

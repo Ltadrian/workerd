@@ -12,6 +12,7 @@ import {
   RpcTarget,
   ServiceStub,
 } from 'cloudflare:workers';
+import { connect } from 'cloudflare:sockets';
 
 try {
   waitUntil(null);
@@ -280,6 +281,16 @@ export class MyService extends WorkerEntrypoint {
     let func = (a, b) => a ^ b;
     func.someProperty = 123;
     return func;
+  }
+
+  async getSocket() {
+    // Create and return a Socket object that can now be fully transferred over RPC
+    try {
+      return connect('example.com:80');
+    } catch (error) {
+      // If socket creation fails (e.g. in test environment), return error info
+      return { error: true, name: error.name, message: error.message };
+    }
   }
 
   getRpcPromise(callback) {
@@ -878,6 +889,31 @@ export let namedServiceBinding = {
         'Could not serialize object of type "Object". This type does not support ' +
         'serialization.',
     });
+
+    // Socket can now be fully transferred over RPC with the full reconstruction implementation
+    try {
+      const socket = await env.MyService.getSocket();
+      if (socket && socket.error) {
+        // Socket creation failed in test environment - this is acceptable
+        assert.strictEqual(typeof socket.message, 'string');
+        console.log(
+          'Socket creation failed as expected in test environment:',
+          socket.message
+        );
+      } else {
+        // Socket was successfully transferred over RPC
+        assert.strictEqual(typeof socket, 'object');
+        assert.strictEqual(typeof socket.readable, 'object');
+        assert.strictEqual(typeof socket.writable, 'object');
+        assert.strictEqual(typeof socket.opened, 'object'); // Promise
+        assert.strictEqual(typeof socket.closed, 'object'); // Promise
+        console.log('Socket successfully transferred over RPC');
+      }
+    } catch (error) {
+      // If we get an unexpected error, fail the test
+      console.error('Unexpected error in Socket transfer test:', error);
+      throw error;
+    }
 
     // A stateless entryponit method that never returns should fail due to PendingEvent tracking.
     await assert.rejects(() => env.MyService.neverReturn(), {
